@@ -5,9 +5,15 @@ namespace App\Entity;
 use App\Repository\CartRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\ORM\Event\LifecycleEventArgs;
 use Doctrine\ORM\Mapping as ORM;
+use Money\Currency;
+use Money\Money;
+use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Serializer\Annotation\MaxDepth;
 
 #[ORM\Entity(repositoryClass: CartRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class Cart
 {
     #[ORM\Id]
@@ -16,11 +22,16 @@ class Cart
     private ?int $id = null;
 
     #[ORM\Column]
-    private ?int $UserId = null;
+    private ?int $userId = null;
 
     #[ORM\Column]
-    private ?int $Total = null;
+    private ?int $total = null;
 
+    #[Assert\Count(
+        max: 3,
+        maxMessage: 'You cannot add more than {{ limit }} products',
+    )]
+    #[MaxDepth(1)]
     #[ORM\OneToMany(mappedBy: 'cart', targetEntity: CartItem::class, orphanRemoval: true)]
     private Collection $cartItems;
 
@@ -36,24 +47,24 @@ class Cart
 
     public function getUserId(): ?int
     {
-        return $this->UserId;
+        return $this->userId;
     }
 
-    public function setUserId(int $UserId): self
+    public function setUserId(int $userId): self
     {
-        $this->UserId = $UserId;
+        $this->userId = $userId;
 
         return $this;
     }
 
     public function getTotal(): ?int
     {
-        return $this->Total;
+        return $this->total;
     }
 
-    public function setTotal(int $Total): self
+    public function setTotal(int $total): self
     {
-        $this->Total = $Total;
+        $this->total = $total;
 
         return $this;
     }
@@ -61,7 +72,7 @@ class Cart
     /**
      * @return Collection<int, CartItem>
      */
-    public function getCartItem(): Collection
+    public function getCartItems(): Collection
     {
         return $this->cartItems;
     }
@@ -86,5 +97,25 @@ class Cart
         }
 
         return $this;
+    }
+
+    #[ORM\PrePersist]
+    public function totalOnPrePersist(LifecycleEventArgs $eventArgs)
+    {
+        $this->total = $this->calculateTotal()->getAmount();
+    }
+
+    public function calculateTotal(): Money
+    {
+        $total = Money::USD(0);
+        foreach ($this->getCartItems() as $cartItem) {
+            $product = $cartItem->getProduct();
+            $price = new Money($product->getPrice(), new Currency($product->getCurrency()));
+            $price = $price->multiply($cartItem->getQuantity());
+
+            $total = $total->add($price);
+        }
+
+        return $total;
     }
 }

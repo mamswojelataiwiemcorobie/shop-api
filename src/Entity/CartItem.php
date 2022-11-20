@@ -4,6 +4,7 @@ namespace App\Entity;
 
 use App\Repository\CartItemRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: CartItemRepository::class)]
 class CartItem
@@ -14,6 +15,11 @@ class CartItem
     private ?int $id = null;
 
     #[ORM\Column]
+    #[Assert\Range(
+        notInRangeMessage: 'You can have between {{ min }} and {{ max }} instances of product',
+        min: 1,
+        max: 10,
+    )]
     private ?int $quantity = null;
 
     #[ORM\ManyToOne(inversedBy: 'cartItems')]
@@ -63,5 +69,14 @@ class CartItem
         $this->product = $product;
 
         return $this;
+    }
+
+    public function toArray()
+    {
+        return [
+            'id' => $this->getId(),
+            'product' => $this->getProduct()->asArray(),
+            'quantity' => $this->getQuantity()
+        ];
     }
 }

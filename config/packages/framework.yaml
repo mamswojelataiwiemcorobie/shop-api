@@ -20,6 +20,8 @@ framework:
     serializer:
         enabled: true
         enable_annotations: true
+    property_info:
+        enabled: true
 
 when@test:
     framework:

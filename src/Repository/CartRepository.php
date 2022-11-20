@@ -3,8 +3,10 @@
 namespace App\Repository;
 
 use App\Entity\Cart;
+use App\Entity\CartItem;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\Validator\Validation;
 
 /**
  * @extends ServiceEntityRepository<Cart>
@@ -23,6 +25,10 @@ class CartRepository extends ServiceEntityRepository
 
     public function save(Cart $entity, bool $flush = false): void
     {
+        foreach ($entity->getCartItems() as $cartItem) {
+            $cartItem->setCart($entity);
+            $this->getEntityManager()->persist($cartItem);
+        }
         $this->getEntityManager()->persist($entity);
 
         if ($flush) {
@@ -39,28 +45,60 @@ class CartRepository extends ServiceEntityRepository
         }
     }
 
-//    /**
-//     * @return Cart[] Returns an array of Cart objects
-//     */
-//    public function findByExampleField($value): array
-//    {
-//        return $this->createQueryBuilder('c')
-//            ->andWhere('c.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->orderBy('c.id', 'ASC')
-//            ->setMaxResults(10)
-//            ->getQuery()
-//            ->getResult()
-//        ;
-//    }
+    public function findAllWithProducts($userId)
+    {
+        $list = $this->createQueryBuilder('c')
+            ->leftJoin('c.cartItems', 'cart_item')
+            ->andWhere('c.userId = :val')
+            ->setParameter('val', $userId)
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 
-//    public function findOneBySomeField($value): ?Cart
-//    {
-//        return $this->createQueryBuilder('c')
-//            ->andWhere('c.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->getQuery()
-//            ->getOneOrNullResult()
-//        ;
-//    }
+    public function addCartItem(Cart $cart, CartItem $cartItemNew)
+    {
+        foreach ($cart->getCartItems() as $cartItem) {
+            if ($cartItem->getProduct() === $cartItemNew->getProduct()) {
+                $quantity = $cartItem->getQuantity() + $cartItemNew->getQuantity();
+                $cartItem->setQuantity($quantity);
+
+                $validator = Validation::createValidatorBuilder()
+                    ->enableAnnotationMapping()
+                    ->getValidator();
+                $violations = $validator->validate($cartItem);
+                if ($violations->count() > 0) {
+                    $messages = [];
+                    foreach ($violations as $violation) {
+                        $messages[$violation->getPropertyPath()][] = $violation->getMessage();
+                    }
+                    return ['errors' => true, 'messages' => $messages];
+                }
+
+                $this->getEntityManager()->persist($cartItem);
+                $this->getEntityManager()->flush();
+                return $cartItem;
+            }
+        }
+        $cart->addCartItem($cartItemNew);
+        $this->save($cart, true);
+    }
+
+    public function removeCartItem(Cart $cart, CartItem $cartItemNew)
+    {
+        foreach ($cart->getCartItems() as $cartItem) {
+            if ($cartItem->getProduct() === $cartItemNew->getProduct()) {
+                $quantity = $cartItem->getQuantity() - $cartItemNew->getQuantity();
+                if ($quantity <= 0) {
+                    break;
+                }
+                $cartItem->setQuantity($quantity);
+                $this->getEntityManager()->persist($cartItem);
+                $this->getEntityManager()->flush();
+                return true;
+            }
+        }
+        $cart->removeCartItem($cartItemNew);
+        $this->save($cart, true);
+    }
 }

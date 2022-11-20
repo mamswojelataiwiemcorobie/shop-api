@@ -18,7 +18,12 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 #[Route(path: "/products", name: "products_")]
 class ProductController extends AbstractController
 {
-    public function __construct(private ProductRepository $productRepository, private SerializerInterface $serializer, private ValidatorInterface $validator) {}
+    public function __construct(
+        private ProductRepository $productRepository,
+        private SerializerInterface $serializer,
+        private ValidatorInterface $validator
+    ) {
+    }
 
     #[Route(path: "", name: "all", methods: ["GET"])]
     function all(Request $request): Response
@@ -56,7 +61,7 @@ class ProductController extends AbstractController
 
         $this->productRepository->save($product, true);
 
-        return new JsonResponse('Product updated', Response::HTTP_OK);
+        return new JsonResponse('Product updated', Response::HTTP_NO_CONTENT);
     }
 
     #[Route(path:"/{id}", name:"update_delete", methods:["DELETE"])]

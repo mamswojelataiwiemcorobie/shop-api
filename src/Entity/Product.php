@@ -10,6 +10,7 @@ use Money\Currency;
 use Money\Money;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Validator\Constraints as Assert;
+use App\Validator as ShopAssert;
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
 #[UniqueEntity('title')]
@@ -20,6 +21,8 @@ class Product
     #[ORM\Column]
     private ?int $id = null;
 
+    #[Assert\Unique]
+    #[ShopAssert\UniqueInDatabase]
     #[ORM\Column(length: 255, unique: true)]
     private ?string $title = null;
 
